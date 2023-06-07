@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,12 +7,14 @@ from tensorflow.keras.layers import LSTM, Conv1D, Dense, Flatten
 import datetime
 import os
 import yfinance as yf
+
 '''Вказати шляхи до папок'''
 # Шлях до файлу моделі
-model_path = '/Model/model.h5'
+model_path = 'C:/Users/stopd/PycharmProjects/scenario_modeling/Model/model.h5'
 # Шлях до файлу з даними
-btc_data_path = '/content/Data/BTC.csv'
-oil_data_path = '/content/Data/Brent Oil Futures Historical Data.csv'
+btc_data_path = 'C:/Users/stopd/PycharmProjects/scenario_modeling/Data/BTC.csv'
+oil_data_path = 'C:/Users/stopd/PycharmProjects/scenario_modeling/Data/Brent Oil Futures Historical Data.csv'
+
 
 # Функція для завантаження даних з API або з файлу
 def load_data():
@@ -97,7 +98,7 @@ def make_predictions(model, X_test, scaler, window_size, days):
     current_features = X_test[0]
 
     for _ in range(len(X_test)):
-        prediction = model.predict(current_features.reshape(1, window_size, 2))
+        prediction = model.predict(current_features.reshape(1, window_size, 2), verbose=2)
         predictions.append(prediction[0][0])
         current_features = np.roll(current_features, -1, axis=0)
         current_features[-1] = prediction
@@ -119,9 +120,9 @@ def make_predictions(model, X_test, scaler, window_size, days):
 
 
 # Функція для виводу графіка прогнозу
-def plot_predictions(predictions, y_test, future_predictions, future_dates):
-    plt.plot(y_test, label='Реальна ціна')
-    plt.plot(range(len(y_test), len(y_test) + len(future_predictions)), future_predictions, label='Прогноз')
+def plot_predictions(predictions, y_test, future_predictions, test_dates, future_dates):
+    plt.plot(test_dates, y_test, label='Реальна ціна')
+    plt.plot(future_dates, future_predictions, label='Прогноз')
     plt.xlabel('Час')
     plt.ylabel('Ціна біткоїна')
     plt.legend()
@@ -143,7 +144,7 @@ def save_model(model):
 # Функція для завантаження моделі
 def load_saved_model():
     try:
-        model = load_model('/content/Model/model.h5')
+        model = load_model('C:/Users/stopd/PycharmProjects/scenario_modeling/Model/model.h5')
         print('Модель завантажена успішно.')
         return model
     except:
@@ -200,6 +201,7 @@ def plot_monthly_price_correlation(data):
 def run_app():
     data = load_data()
     bitcoin_prices = data['Close_x'].values.reshape(-1, 1)
+    dates = data['Date'].values.reshape(-1, 1)
     oil_prices = data['Close_y'].values.reshape(-1, 1)
 
     # Нормалізація даних
@@ -218,6 +220,9 @@ def run_app():
     # Розмір вікна
     window_size = 50
 
+    pd.set_option('display.max_columns', 50)
+    pd.set_option('display.width', 1000)
+
     while True:
         print('Меню:')
         print('1. Показати таблицю цін')
@@ -235,12 +240,12 @@ def run_app():
         if choice == '1':
             print(data)
         elif choice == '2':
-            plt.plot(bitcoin_prices)
+            plt.plot(dates, bitcoin_prices)
             plt.xlabel('Час')
             plt.ylabel('Ціна біткоїна')
             plt.show()
         elif choice == '3':
-            plt.plot(oil_prices)
+            plt.plot(dates, oil_prices)
             plt.xlabel('Час')
             plt.ylabel('Ціна олії')
             plt.show()
@@ -261,8 +266,13 @@ def run_app():
                 days = int(input('Введіть кількість днів для прогнозу: '))
                 X_test, y_test = create_features(test_bitcoin_data, test_oil_data, window_size)
                 predictions, future_predictions = make_predictions(model, X_test, bitcoin_scaler, window_size, days)
+                test_dates = pd.date_range(end=data['Date'].values[-1], periods=len(X_test) + 1)[1:]
                 future_dates = pd.date_range(start=data['Date'].values[-1], periods=days + 1)[1:]
-                plot_predictions(predictions, bitcoin_prices[train_size + window_size:], future_predictions, future_dates)
+                results = pd.DataFrame({'Date':future_dates, 'Price':future_predictions})
+                print(results.head())
+                results.to_csv('C:/Users/stopd/PycharmProjects/scenario_modeling/prediction.csv')
+                plot_predictions(predictions, bitcoin_prices[train_size + window_size:], future_predictions,
+                                 test_dates, future_dates)
         elif choice == '7':
             show_last_updated()  # Виведення інформації про останнє оновлення моделі
         elif choice == '8':
@@ -275,4 +285,3 @@ def run_app():
 
 # Запуск додатку
 run_app()
-
